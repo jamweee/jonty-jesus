@@ -53,15 +53,29 @@ function saveVisits(v) {
   catch { console.warn("localStorage full"); }
 }
 
-function todayLabel() {
-  return new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+// Date helpers - store as ISO (YYYY-MM-DD), display as "25 April 2026"
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+function displayDate(raw) {
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split("-");
+    return new Date(Number(y), Number(m) - 1, Number(d))
+      .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  }
+  return raw; // legacy free-text fallback
+}
+function isoFromStored(raw) {
+  if (!raw) return "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
 }
 
 // Default state - Glasgow already visited with bundled photo
 const DEFAULTS = {
   glasgow: {
     visited: true,
-    visitDate: "April 2026",
+    visitDate: "2026-04-25",
     notes: "First one down. Jonty sitting pretty with the man himself in Glasgow.",
     photoUrl: glasgowPhoto,
   },
@@ -98,14 +112,14 @@ export default function App() {
         ...v,
         visited: nowVisited,
         // Auto-stamp the date when first marking visited (if none set)
-        visitDate: nowVisited && !v.visitDate ? todayLabel() : v.visitDate,
+        visitDate: nowVisited && !v.visitDate ? todayIso() : v.visitDate,
       },
     });
   };
 
   const openEdit = (loc) => {
     const v = visits[loc.id] || {};
-    setEditForm({ date: v.visitDate || "", notes: v.notes || "", photoUrl: v.photoUrl || "" });
+    setEditForm({ date: isoFromStored(v.visitDate), notes: v.notes || "", photoUrl: v.photoUrl || "" });
     setEditingId(loc.id);
     setExpandedId(loc.id);
     setUploadState("idle");
@@ -118,7 +132,7 @@ export default function App() {
       [id]: {
         ...v,
         visited: true,
-        visitDate: editForm.date || v.visitDate || todayLabel(),
+        visitDate: editForm.date || v.visitDate || todayIso(),
         notes: editForm.notes,
         photoUrl: editForm.photoUrl || v.photoUrl || null,
       },
@@ -171,7 +185,7 @@ export default function App() {
         <div style={{ maxWidth: "480px", margin: "0 auto 1.8rem", borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(196,163,90,0.25)", boxShadow: "0 8px 40px rgba(0,0,0,0.6)" }}>
           <img src={glasgowPhoto} alt="Jonty with Homeless Jesus in Glasgow" style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: "320px", objectPosition: "center 30%" }} />
           <div style={{ padding: "0.6rem 1rem", background: "rgba(0,0,0,0.5)", fontSize: "0.75rem", color: "#9a8a60", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            Glasgow, Scotland &mdash; April 2026 &mdash; Statue #1
+            25 April 2026 &mdash; Glasgow, Scotland &mdash; Statue #1
           </div>
         </div>
 
@@ -305,7 +319,7 @@ function LocationCard({ loc, expanded, editing, editForm, uploadState, fileRef, 
 
         {/* Visit date */}
         {loc.visited && loc.visitDate && (
-          <div style={{ fontSize: "0.67rem", color: "#8a7a58", flexShrink: 0, whiteSpace: "nowrap" }}>{loc.visitDate}</div>
+          <div style={{ fontSize: "0.67rem", color: "#8a7a58", flexShrink: 0, whiteSpace: "nowrap" }}>{displayDate(loc.visitDate)}</div>
         )}
 
         {/* Photo thumb */}
@@ -365,7 +379,7 @@ function EditForm({ form, uploadState, fileRef, currentPhotoUrl, onChange, onFil
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
       <Field label="Visit date">
-        <input value={form.date} onChange={(e) => onChange("date", e.target.value)} placeholder="e.g. April 2026" style={inp} />
+        <input type="date" value={form.date} onChange={(e) => onChange("date", e.target.value)} style={{ ...inp, colorScheme: "dark" }} />
       </Field>
       <Field label="Notes">
         <textarea value={form.notes} onChange={(e) => onChange("notes", e.target.value)} placeholder="How was it? Any funny looks from passers-by?" rows={3} style={{ ...inp, resize: "vertical" }} />
